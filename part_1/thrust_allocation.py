@@ -45,11 +45,55 @@ class ThrustAllocator:
         u_now: Optional[np.ndarray] = None,
         alpha_now: Optional[np.ndarray] = None,
     ) -> Tuple[np.ndarray, np.ndarray]:
+
         n = len(self.thrusters)
 
-        # TODO: Replace this placeholder with your thrust allocation algorithm.
-        # The placeholder commands zero thrust and alpha for all thrusters.
-        u_cmd = np.zeros(n)
-        alpha_cmd = np.zeros(n)
+        # Use only surge, sway and yaw
+        tau =  tau_d[[0, 1, 5]]
+
+        # Extended thrust configuration matrix
+        Be = np.array([
+            [0.0,  1.0,   0.0,  1.0,   0.0],
+            [1.0,  0.0,   1.0,  0.0,   1.0],
+            [12.0, -3.0, -13.0,  3.0, -13.0]
+        ])
+        # Pseudoinverse allocation
+        z = np.linalg.pinv(Be) @ tau
+        # Current thrust magnitudes from the pseudoinverse solution
+        uT = z[0]
+
+        u1 = np.hypot(z[1], z[2])
+        u2 = np.hypot(z[3], z[4])
+
+        # Check how much each thruster exceeds its limit
+        r = max(
+            abs(uT) / 32000.0,
+            u1 / 80000.0,
+            u2 / 80000.0
+        )
+
+        # If any thruster exceeds its limit, scale the whole solution down
+        if r > 1.0:
+            z = z / r
+
+        uT = z[0]
+
+        Fx1 = z[1]
+        Fy1 = z[2]
+
+        Fx2 = z[3]
+        Fy2 = z[4]
+
+        # Convert azimuth forces to thrust magnitude and angle
+        u1 = np.hypot(Fx1, Fy1)
+        alpha1 = np.arctan2(Fy1, Fx1)
+
+        u2 = np.hypot(Fx2, Fy2)
+        alpha2 = np.arctan2(Fy2, Fx2)
+
+        
+        u_cmd = np.array([uT, u1, u2])
+        alpha_cmd = np.array([np.pi/2, alpha1, alpha2])
 
         return u_cmd, alpha_cmd
+

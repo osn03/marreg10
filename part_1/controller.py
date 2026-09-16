@@ -56,11 +56,31 @@ class DPController:
     """
 
     def __init__(self, *args, **kwargs):
-        pass
+
+        self.Kp_pos = np.array([1502.0, 1767.0])
+        self.Kd_pos = np.array([60070.0, 70670.0])
+
+        self.Kp_psi = 136400.0
+        self.Kd_psi = 5.456e6
+
+        self.Ki_pos = np.array([0, 0])
+        self.Ki_psi = 0
+
+        # Integral states
+        self.int_ned = np.zeros(2)
+        self.int_psi = 0.0
+
+        #Tracking Time constants
+        self.Tt_pos = 50.0
+        self.Tt_psi = 50.0
+
+        self.last_tau_requested = np.zeros(6)
 
     def reset(self) -> None:
         """Optional: reset internal states (integrators, filters) before a run."""
-        pass
+        self.int_ned = np.zeros(2)
+        self.int_psi = 0.0
+        self.last_tau_requested = np.zeros(6)
 
     def compute(
         self,
@@ -75,4 +95,130 @@ class DPController:
         # TODO: Replace this placeholder with your DP controller.
         # Return the (6,) desired BODY wrench — fill in tau_d[0] = Fx,
         # tau_d[1] = Fy, tau_d[5] = Mz and leave the rest zero.
-        return np.zeros(6)
+
+
+        # Actual vessel state
+        N = eta[0]
+        E = eta[1]
+        psi = eta[5]
+
+        u = nu[0]
+        v = nu[1]
+        r = nu[5]
+
+
+        # Desired/reference state
+        N_d = eta_ref[0]
+        E_d = eta_ref[1]
+        psi_d = eta_ref[5]
+
+        if nu_ref is None:
+            Ndot_d = 0.0
+            Edot_d = 0.0
+            psidot_d = 0.0
+        else:
+            Ndot_d = nu_ref[0]
+            Edot_d = nu_ref[1]
+            psidot_d = nu_ref[5]
+
+
+        # Position errors
+        e_pos_ned = np.array([
+            N_d - N,
+            E_d - E
+        ])
+
+        e_psi = np.arctan2(
+            np.sin(psi_d - psi),
+            np.cos(psi_d - psi)
+        )
+
+        # Rotation BODY -> NED
+        c = np.cos(psi)
+        s = np.sin(psi)
+
+        J = np.array([
+            [c, -s],
+            [s,  c]
+        ])
+
+        vel_ned = J @ np.array([u, v])
+
+
+        # Velocity error
+        vel_ref_ned = np.array([
+            Ndot_d,
+            Edot_d
+        ])
+
+        e_vel_ned = vel_ref_ned - vel_ned
+
+        # Integrators
+        self.int_ned += e_pos_ned * dt
+        self.int_psi += e_psi * dt
+
+        # North/east PID regulation in NED
+        P_ned = self.Kp_pos * e_pos_ned
+        I_ned = self.Ki_pos * self.int_ned
+        D_ned = self.Kd_pos * e_vel_ned
+
+        force_ned = P_ned + I_ned + D_ned
+
+        # NED force -> BODY force
+        force_body = J.T @ force_ned
+
+        X = force_body[0]
+        Y = force_body[1]
+
+        # Yaw PID regulation in BODY
+        e_r = psidot_d - r
+
+        P_psi = self.Kp_psi * e_psi
+        I_psi = self.Ki_psi * self.int_psi
+        D_psi = self.Kd_psi * e_r
+
+        Mz = P_psi + I_psi + D_psi
+
+        # Desired BODY forces
+        tau_d = np.zeros(6)
+
+        tau_d[0] = X   # Surge force 
+        tau_d[1] = Y   # Sway force 
+        tau_d[5] = Mz  # Yaw moment
+
+        # For anti wind up
+        self.last_tau_requested = tau_d.copy()
+
+        return tau_d
+
+    def apply_external_aw(
+        self,
+        tau_applied: np.ndarray,
+        psi: float,
+        dt: float
+    ) -> None:
+
+        delta_tau_body = tau_applied - self.last_tau_requested
+
+        c = np.cos(psi)
+        s = np.sin(psi)
+
+        J = np.array([
+            [c, -s],
+            [s,  c]
+        ])
+
+        delta_force_ned = J @ delta_tau_body[:2]
+
+        for i in range(2):
+            if self.Ki_pos[i] > 0.0:
+                self.int_ned[i] += (
+                    delta_force_ned[i]
+                    / (self.Ki_pos[i] * self.Tt_pos)
+                ) * dt
+
+        if self.Ki_psi > 0.0:
+            self.int_psi += (
+                delta_tau_body[5]
+                / (self.Ki_psi * self.Tt_psi)
+            ) * dt
