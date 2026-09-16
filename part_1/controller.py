@@ -63,8 +63,8 @@ class DPController:
         self.Kp_psi = 136400.0
         self.Kd_psi = 5.456e6
 
-        self.Ki_pos = np.array([0, 0])
-        self.Ki_psi = 0
+        self.Ki_pos = np.array([10.0, 11.8])
+        self.Ki_psi = 909
 
         # Integral states
         self.int_ned = np.zeros(2)
