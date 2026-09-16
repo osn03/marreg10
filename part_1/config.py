@@ -58,10 +58,24 @@ class RefAxisConfig:
     # TODO (students): wn below is a placeholder, NOT a tuned value. Choose
     # the natural frequency yourself and justify it in the report (see the
     # project text, Reference Model section).
-    wn: float = 1.0                     # natural frequency [rad/s] (placeholder)
+    wn: float = 0.05                     # natural frequency [rad/s] (placeholder)
     zeta: float = 1.0                   # damping ratio [-]
     rate_limit: Optional[float] = None  # max |x_dot| (m/s or rad/s); None = off
 
+REF_WN_XY: float = 0.05                  # position natural frequency [rad/s]
+REF_WN_PSI: float = 0.10                 # heading natural frequency [rad/s]
+REF_ZETA: float = 1.0                    # critical damping, both axes [-]
+REF_RATE_XY: float = 0.5                 # max desired speed [m/s]
+REF_RATE_PSI: float = np.deg2rad(3.0)    # max desired yaw rate [rad/s]
+
+def default_ref_xy() -> RefAxisConfig:
+    """Tuned reference-model settings for the position axes (N and E)."""
+    return RefAxisConfig(wn=REF_WN_XY, zeta=REF_ZETA, rate_limit=REF_RATE_XY)
+
+
+def default_ref_psi() -> RefAxisConfig:
+    """Tuned reference-model settings for the heading axis (psi)."""
+    return RefAxisConfig(wn=REF_WN_PSI, zeta=REF_ZETA, rate_limit=REF_RATE_PSI)
 
 def default_thrusters_gunnerus3() -> list[ThrusterConfig]:
     """Three-thruster Gunnerus layout from the project description (Table 3)."""
