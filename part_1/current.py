@@ -49,7 +49,6 @@ class Current:
     def __init__(self, speed: float = 0.0, beta: float = 0.0, *,
                  semantics: str = "towards",
                  beta_end: float | None = None, duration: float = 0.0):
-        # TODO: Store and use the parameters above in step().
         self.speed = float(speed)
         self.beta = float(beta)
         self.semantics = semantics
@@ -63,6 +62,13 @@ class Current:
         eta: np.ndarray,
         nu: np.ndarray,
     ) -> np.ndarray:
-        # TODO: Replace this placeholder with your current model.
-        # Default: no current.
-        return np.zeros(6)
+        beta = self.beta
+        if self.beta_end is not None:
+            fraction = min(max(t / self.duration, 0.0), 1.0) if self.duration > 0.0 else 1.0
+            beta += fraction * (self.beta_end - self.beta)
+
+        speed = -self.speed if self.semantics == "from" else self.speed
+        nu_c_ned = np.zeros(6)
+        nu_c_ned[0] = speed * np.cos(beta)
+        nu_c_ned[1] = speed * np.sin(beta)
+        return nu_c_ned
