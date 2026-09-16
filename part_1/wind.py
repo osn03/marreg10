@@ -85,13 +85,19 @@ class Wind:
     def __init__(self, mean_speed: float = 0.0, beta: float = 0.0, *,
                  semantics: str = "from", sigma_slow: float = 0.0,
                  tau_slow: float = 120.0, seed: int | None = None):
-        # TODO: Store and use the parameters above in step().
         self.mean_speed = float(mean_speed)
         self.beta = float(beta)
         self.semantics = semantics
         self.sigma_slow = float(sigma_slow)
         self.tau_slow = float(tau_slow)
         self.seed = seed
+        if semantics not in ("from", "towards"):
+            raise ValueError("semantics must be 'from' or 'towards'")
+        if self.sigma_slow < 0.0 or self.tau_slow <= 0.0:
+            raise ValueError("sigma_slow must be nonnegative and tau_slow positive")
+        self._rng = np.random.default_rng(seed)
+        self._slow_speed = 0.0
+        self._alpha_deg, self._coefficients = load_wind_coefficients()
 
     def step(
         self,
@@ -100,8 +106,23 @@ class Wind:
         eta: np.ndarray,
         nu: np.ndarray,
     ) -> Tuple[np.ndarray, Dict[str, float]]:
-        # TODO: Replace this placeholder with your wind load model.
-        # Default: no wind loads.
-        tau_w6 = np.zeros(6)
-        info = {"U": 0.0, "beta_ned": 0.0, "alpha_body": 0.0}
+        if self.sigma_slow > 0.0 and dt > 0.0:
+            decay = np.exp(-dt / self.tau_slow)
+            scale = self.sigma_slow * np.sqrt(-np.expm1(-2.0 * dt / self.tau_slow))
+            self._slow_speed = decay * self._slow_speed + scale * self._rng.standard_normal()
+
+        speed = max(0.0, self.mean_speed + self._slow_speed)
+        beta_ned = (self.beta + (np.pi if self.semantics == "from" else 0.0)) % (2.0 * np.pi)
+        angle = beta_ned - eta[5]
+        relative_u = speed * np.cos(angle) - nu[0]
+        relative_v = speed * np.sin(angle) - nu[1]
+        speed_squared = relative_u * relative_u + relative_v * relative_v
+        alpha_body = np.arctan2(relative_v, relative_u) % (2.0 * np.pi)
+        alpha_deg = np.degrees(alpha_body)
+        index = np.searchsorted(self._alpha_deg, alpha_deg, side="right") - 1
+        index = np.clip(index, 0, len(self._alpha_deg) - 2)
+        weight = (alpha_deg - self._alpha_deg[index]) / (self._alpha_deg[index + 1] - self._alpha_deg[index])
+        coefficients = (1.0 - weight) * self._coefficients[index] + weight * self._coefficients[index + 1]
+        tau_w6 = speed_squared * coefficients
+        info = {"U": speed, "beta_ned": beta_ned, "alpha_body": alpha_body}
         return tau_w6, info
