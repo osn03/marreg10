@@ -57,10 +57,6 @@ class DPController:
 
     def __init__(self, *args, **kwargs):
 
-        # --------------------------------
-        # Tuning parameters
-        # --------------------------------
-
         # Characteristic controller period [s]
         self.Tc = 50.0
 
@@ -78,21 +74,13 @@ class DPController:
         self.Tt_pos = 50.0
         self.Tt_psi = 50.0
 
-
-        # --------------------------------
         # Gunnerus effective inertia
-        # --------------------------------
-
         m_surge = 6.007e5
         m_sway  = 7.067e5
         Iz      = 5.456e7
 
-
-        # --------------------------------
         # Proportional gains
         # Kp = m * omega_c^2
-        # --------------------------------
-
         self.Kp_pos = np.array([
             m_surge * self.omega_c**2,
             m_sway  * self.omega_c**2
@@ -100,12 +88,8 @@ class DPController:
 
         self.Kp_psi = Iz * self.omega_c**2
 
-
-        # --------------------------------
         # Derivative gains
         # Kd = 2*zeta*omega_c*m
-        # --------------------------------
-
         self.Kd_pos = np.array([
             2 * self.zeta_c * self.omega_c * m_surge,
             2 * self.zeta_c * self.omega_c * m_sway
@@ -115,20 +99,12 @@ class DPController:
             2 * self.zeta_c * self.omega_c * Iz
         )
 
-
-        # --------------------------------
         # Integral gains
         # Ki = Kp / Ti
-        # --------------------------------
-
         self.Ki_pos = self.Kp_pos / self.Ti_pos
         self.Ki_psi = self.Kp_psi / self.Ti_psi
 
-
-        # --------------------------------
         # Integral states
-        # --------------------------------
-
         self.int_ned = np.zeros(2)
         self.int_psi = 0.0
 
