@@ -38,17 +38,6 @@ def _wrap_pi(angle: float) -> float:
 class ReferenceModel:
     """
     Critically damped second-order reference filter, one per controlled axis.
-
-    The position axes (N, E) and the heading axis are tuned separately:
-    position is limited by sway thrust, heading is not, so heading runs at
-    twice the position bandwidth. See ``default_ref_xy()`` /
-    ``default_ref_psi()`` in part_1/config.py for the values and the
-    reasoning behind them.
-
-    The defaults are taken from those factories rather than from bare
-    ``RefAxisConfig()``, so the automated checks — which construct
-    ``ReferenceModel(dt)`` with no further arguments — exercise the same
-    tuning as the simulations.
     """
 
     def __init__(
@@ -85,7 +74,7 @@ class ReferenceModel:
 
         error = cmd - self.eta_ref[index]
         if is_angle:
-            error = _wrap_pi(error)          # FIX 1: always turn the short way
+            error = _wrap_pi(error)
 
         vel_old = self.nu_ref[index]
 
@@ -95,7 +84,7 @@ class ReferenceModel:
         if rate_limit is not None and abs(vel_new) > rate_limit:
             vel_new = np.sign(vel_new) * rate_limit
 
-        self.acc_ref[index] = (vel_new - vel_old) / dt   # FIX 2: new minus old
+        self.acc_ref[index] = (vel_new - vel_old) / dt
         self.nu_ref[index] = vel_new
         self.eta_ref[index] += vel_new * dt
         if is_angle:
@@ -106,7 +95,6 @@ class ReferenceModel:
     def step(
         self, t: float, dt: float, eta_cmd: np.ndarray
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        # TODO: Replace this pass-through placeholder with your reference model.
 
         cmd = np.asarray(eta_cmd, dtype=float).reshape(6)
         self.step_axis(0, cmd[0], dt, self.cfg_xy)  # N

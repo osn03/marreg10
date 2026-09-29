@@ -47,13 +47,6 @@ class SimConfig:
 @dataclass
 class RefAxisConfig:
     """Reference-model configuration for one axis (see part_1/reference.py).
-
-    Tune these per simulation and justify the values in the report.
-
-    Note: the automated checks build the default ``ReferenceModel(dt)``, which
-    uses the field defaults below — so keep your final tuned values as the
-    defaults here (overriding them only in ``run_case_part1.py`` will not
-    reach the checks).
     """
     # TODO (students): wn below is a placeholder, NOT a tuned value. Choose
     # the natural frequency yourself and justify it in the report (see the
@@ -71,7 +64,6 @@ REF_RATE_PSI: float = np.deg2rad(3.0)    # max desired yaw rate [rad/s]
 def default_ref_xy() -> RefAxisConfig:
     """Tuned reference-model settings for the position axes (N and E)."""
     return RefAxisConfig(wn=REF_WN_XY, zeta=REF_ZETA, rate_limit=REF_RATE_XY)
-
 
 def default_ref_psi() -> RefAxisConfig:
     """Tuned reference-model settings for the heading axis (psi)."""
