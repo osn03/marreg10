@@ -1,4 +1,5 @@
 """
+This page is generated with claude.
 resultspart1.py -- results for the "Simulation results" section of the
 TMR4240 Project Part 1 report (mandatory Simulations 1-4).
 
