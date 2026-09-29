@@ -126,3 +126,89 @@ class Wind:
         tau_w6 = speed_squared * coefficients
         info = {"U": speed, "beta_ned": beta_ned, "alpha_body": alpha_body}
         return tau_w6, info
+
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+
+    # Loading the coefficient table.
+    alpha_deg, coefficients = load_wind_coefficients()
+
+    # A dense network of angles to show the linear interpolation.
+    angles = np.linspace(0.0, 360.0, 1441)
+
+    # Only cover surge, sway and yaw, corresponding to the 3-DOF model.
+    indices = [0, 1, 5]
+    labels = [r"$C_x$", r"$C_y$", r"$C_\psi$"]
+    units = [
+        r"N s$^2$/m$^2$",
+        r"N s$^2$/m$^2$",
+        r"N m s$^2$/m$^2$",
+    ]
+
+    # Størrelse og skrift tilpasset én kolonne i rapporten.
+    # Adapted to the report
+    plt.rcParams.update({
+        "font.size": 8,
+        "axes.labelsize": 8,
+        "xtick.labelsize": 7,
+        "ytick.labelsize": 7,
+    })
+
+    fig, axes = plt.subplots(
+        3, 1,
+        figsize=(3.5, 4.5),
+        sharex=True,
+    )
+
+    for ax, index, label, unit in zip(axes, indices, labels, units):
+        interpolated = np.interp(
+            angles,
+            alpha_deg,
+            coefficients[:, index],
+        )
+
+        ax.plot(
+            angles,
+            interpolated,
+            linewidth=1,
+            label="Linear interpolation",
+        )
+
+        ax.plot(
+            alpha_deg,
+            coefficients[:, index],
+            "o",
+            markersize=2.5,
+            markerfacecolor="white",
+            markeredgecolor="black",
+            markeredgewidth=0.5,
+            label="Table values",
+        )
+
+        ax.set_ylabel(f"{label}\n[{unit}]")
+        ax.set_xlim(0, 360)
+        ax.grid(True, alpha=0.3)
+
+    axes[0].legend(loc="upper center", fontsize=6)
+    axes[-1].set_xticks(np.arange(0, 361, 60))
+    axes[-1].set_xlabel(
+        r"Relative wind angle $\alpha_{rw}$ [deg]"
+    )
+
+    fig.tight_layout()
+
+    # Saving the figure in the project folder.
+    output_dir = (
+        Path(__file__).resolve().parent.parent
+        / "results_part1"
+        / "figures"
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    fig.savefig(
+        output_dir / "wind_coefficients.png",
+        dpi=600,
+        bbox_inches="tight",
+    )
+
+    plt.show()
