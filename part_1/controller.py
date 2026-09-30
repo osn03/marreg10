@@ -67,8 +67,8 @@ class DPController:
         self.zeta_c = 1.0
 
         # Integral times [s]
-        self.Ti_pos = 50.0
-        self.Ti_psi = 50.0
+        self.Ti_pos = 50
+        self.Ti_psi = 50
 
         # Anti-windup tracking times [s]
         self.Tt_pos = 50.0

@@ -26,7 +26,7 @@ from part_1.wind import Wind
 
 def main():
     # 1) Simulation clock and options
-    cfg = SimConfig(dt=0.05, T=300.0, method="Euler", use_reference=True)
+    cfg = SimConfig(dt=0.05, T=800.0, method="Euler", use_reference=True)
 
     # 2) Controller, reference model, and thruster layout
     # Pass your own design parameters (gains, limits, ...) to your controller.
@@ -48,12 +48,16 @@ def main():
     # The 3-DOF model uses N = eta_cmd[0], E = eta_cmd[1], psi = eta_cmd[5];
     # leave the other components zero.
     # Constant setpoint example:
-    eta_cmd = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    eta_cmd = np.array([0, 0, 0.0, 0.0, 0.0, 0])
 
     # Students may replace eta_cmd with a time series of shape (N_steps, 6).
 
     # 5) Define environment models (default: calm water)
-    current = Current()
+    current = Current(
+        0.5,
+        np.pi / 2,
+        semantics="from"
+    )
     wind = Wind()
 
     # Simulation 1a from the project description — station keeping at the

@@ -34,21 +34,15 @@ Optional hooks the simulator will use IF you define them (safe to omit):
     apply_external_aw(tau_applied, psi, dt)  — anti-windup with the (6,)
                                                wrench actually applied after
                                                allocation and the actuator
-                                               model.  Unlike Part 1, the
-                                               Part 2 actuators saturate and
-                                               rate-limit by default, so the
-                                               applied wrench really does
-                                               differ from the demanded one.
+                                               model (ideal in Part 1)
     last_pid_body  : {"P","I","D"} -> (6,) BODY components   (logged)
     int_ned (2,), int_psi (float)            — integrator states (logged)
 
-Constructor contract — the automated checks (``python check.py --part 2``,
-``pytest``) build your controller with no arguments:
-
-    DPController()
-
-so your final tuned gains must be the ``__init__`` defaults.  Gains set only
-in ``run_case_part_2.py`` reach your own runs but not the checks.
+Constructor contract — the automated checks (``python check.py``, ``pytest``,
+``notebooks/part_1_demo.ipynb``) construct your controller as
+``DPController()`` with NO arguments, so your final tuned gains must be the
+constructor defaults. Tuning only inside ``run_case_part1.py`` will pass your
+own runs but fail the checks.
 """
 import numpy as np
 
@@ -62,11 +56,66 @@ class DPController:
     """
 
     def __init__(self, *args, **kwargs):
-        pass
+
+        # Characteristic controller period [s]
+        self.Tc = 50.0
+
+        # Convert period to bandwidth [rad/s]
+        self.omega_c = 2 * np.pi / self.Tc
+
+        # Desired damping ratio
+        self.zeta_c = 1.0
+
+        # Integral times [s]
+        self.Ti_pos = 50.0
+        self.Ti_psi = 50.0
+
+        # Anti-windup tracking times [s]
+        self.Tt_pos = 50.0
+        self.Tt_psi = 50.0
+
+        # Gunnerus effective inertia
+        m_surge = 6.007e5
+        m_sway  = 7.067e5
+        Iz      = 5.456e7
+
+        # Proportional gains
+        # Kp = m * omega_c^2
+        self.Kp_pos = np.array([
+            m_surge * self.omega_c**2,
+            m_sway  * self.omega_c**2
+        ])
+
+        self.Kp_psi = Iz * self.omega_c**2
+
+        # Derivative gains
+        # Kd = 2*zeta*omega_c*m
+        self.Kd_pos = np.array([
+            2 * self.zeta_c * self.omega_c * m_surge,
+            2 * self.zeta_c * self.omega_c * m_sway
+        ])
+
+        self.Kd_psi = (
+            2 * self.zeta_c * self.omega_c * Iz
+        )
+
+        # Integral gains
+        # Ki = Kp / Ti
+        self.Ki_pos = self.Kp_pos / self.Ti_pos
+        self.Ki_psi = self.Kp_psi / self.Ti_psi
+
+        # Integral states
+        self.int_ned = np.zeros(2)
+        self.int_psi = 0.0
+
+        self.last_tau_requested = np.zeros(6)
+    
 
     def reset(self) -> None:
         """Optional: reset internal states (integrators, filters) before a run."""
-        pass
+        self.int_ned = np.zeros(2)
+        self.int_psi = 0.0
+        self.last_tau_requested = np.zeros(6)
 
     def compute(
         self,
@@ -81,4 +130,130 @@ class DPController:
         # TODO: Replace this placeholder with your DP controller.
         # Return the (6,) desired BODY wrench — fill in tau_d[0] = Fx,
         # tau_d[1] = Fy, tau_d[5] = Mz and leave the rest zero.
-        return np.zeros(6)
+
+
+        # Actual vessel state
+        N = eta[0]
+        E = eta[1]
+        psi = eta[5]
+
+        u = nu[0]
+        v = nu[1]
+        r = nu[5]
+
+
+        # Desired/reference state
+        N_d = eta_ref[0]
+        E_d = eta_ref[1]
+        psi_d = eta_ref[5]
+
+        if nu_ref is None:
+            Ndot_d = 0.0
+            Edot_d = 0.0
+            psidot_d = 0.0
+        else:
+            Ndot_d = nu_ref[0]
+            Edot_d = nu_ref[1]
+            psidot_d = nu_ref[5]
+
+
+        # Position errors
+        e_pos_ned = np.array([
+            N_d - N,
+            E_d - E
+        ])
+
+        e_psi = np.arctan2(
+            np.sin(psi_d - psi),
+            np.cos(psi_d - psi)
+        )
+
+        # Rotation BODY -> NED
+        c = np.cos(psi)
+        s = np.sin(psi)
+
+        J = np.array([
+            [c, -s],
+            [s,  c]
+        ])
+
+        vel_ned = J @ np.array([u, v])
+
+
+        # Velocity error
+        vel_ref_ned = np.array([
+            Ndot_d,
+            Edot_d
+        ])
+
+        e_vel_ned = vel_ref_ned - vel_ned
+
+        # Integrators
+        self.int_ned += e_pos_ned * dt
+        self.int_psi += e_psi * dt
+
+        # North/east PID regulation in NED
+        P_ned = self.Kp_pos * e_pos_ned
+        I_ned = self.Ki_pos * self.int_ned
+        D_ned = self.Kd_pos * e_vel_ned
+
+        force_ned = P_ned + I_ned + D_ned
+
+        # NED force -> BODY force
+        force_body = J.T @ force_ned
+
+        X = force_body[0]
+        Y = force_body[1]
+
+        # Yaw PID regulation in BODY
+        e_r = psidot_d - r
+
+        P_psi = self.Kp_psi * e_psi
+        I_psi = self.Ki_psi * self.int_psi
+        D_psi = self.Kd_psi * e_r
+
+        Mz = P_psi + I_psi + D_psi
+
+        # Desired BODY forces
+        tau_d = np.zeros(6)
+
+        tau_d[0] = X   # Surge force 
+        tau_d[1] = Y   # Sway force 
+        tau_d[5] = Mz  # Yaw moment
+
+        # For anti wind up
+        self.last_tau_requested = tau_d.copy()
+
+        return tau_d
+
+    def apply_external_aw(
+        self,
+        tau_applied: np.ndarray,
+        psi: float,
+        dt: float
+    ) -> None:
+
+        delta_tau_body = tau_applied - self.last_tau_requested
+
+        c = np.cos(psi)
+        s = np.sin(psi)
+
+        J = np.array([
+            [c, -s],
+            [s,  c]
+        ])
+
+        delta_force_ned = J @ delta_tau_body[:2]
+
+        for i in range(2):
+            if self.Ki_pos[i] > 0.0:
+                self.int_ned[i] += (
+                    delta_force_ned[i]
+                    / (self.Ki_pos[i] * self.Tt_pos)
+                ) * dt
+
+        if self.Ki_psi > 0.0:
+            self.int_psi += (
+                delta_tau_body[5]
+                / (self.Ki_psi * self.Tt_psi)
+            ) * dt
