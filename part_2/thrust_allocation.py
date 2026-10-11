@@ -65,9 +65,68 @@ class ThrustAllocator:
     ) -> Tuple[np.ndarray, np.ndarray]:
         n = len(self.thrusters)
 
-        # TODO: Replace this placeholder with your thrust allocation algorithm.
-        # The placeholder commands zero thrust and alpha for all thrusters.
-        u_cmd = np.zeros(n)
-        alpha_cmd = np.zeros(n)
+        # Extract the desired 3-DOF wrench
+        tau = tau_d[[0, 1, 5]]
+
+        # Extended configuration matrix
+        Be = np.array([
+            [0.0,  1.0,   0.0,  1.0,   0.0],
+            [1.0,  0.0,   1.0,  0.0,   1.0],
+            [12.0, -3.0, -13.0,  3.0, -13.0]
+        ])
+
+        # Minimum-norm thrust allocation
+        z = np.linalg.pinv(Be) @ tau
+
+        # Calculate the thrust required from each thruster
+        uT = abs(z[0])
+        u1 = np.hypot(z[1], z[2])
+        u2 = np.hypot(z[3], z[4])
+
+        # Find the largest ratio between required and maximum thrust
+        r = max(
+            1.0,
+            uT / self.thrusters[0].u_max,
+            u1 / self.thrusters[1].u_max,
+            u2 / self.thrusters[2].u_max
+        )
+
+        # Scale all allocated forces if a limit is exceeded
+        z = z / r
+
+        # Convert allocated forces to thruster commands
+        u_cmd = np.array([
+            z[0],
+            np.hypot(z[1], z[2]),
+            np.hypot(z[3], z[4])
+        ])
+
+        alpha_cmd = np.array([
+            np.pi / 2,
+            np.arctan2(z[2], z[1]),
+            np.arctan2(z[4], z[3])
+        ])
+        # Select the equivalent command requiring less azimuth rotation
+        if alpha_now is not None:
+            for i in [1, 2]:
+
+                # Keep current angle when almost no thrust is required
+                if abs(u_cmd[i]) < 1.0:
+                    alpha_cmd[i] = alpha_now[i]
+                    continue
+
+                # Shortest angular difference between desired and current angle
+                delta = np.arctan2(
+                    np.sin(alpha_cmd[i] - alpha_now[i]),
+                    np.cos(alpha_cmd[i] - alpha_now[i])
+                )
+
+                # Reverse thrust instead of rotating more than 90 degrees
+                if abs(delta) > np.pi / 2:
+                    u_cmd[i] = -u_cmd[i]
+                    alpha_cmd[i] = np.arctan2(
+                        np.sin(alpha_cmd[i] + np.pi),
+                        np.cos(alpha_cmd[i] + np.pi)
+                    )
 
         return u_cmd, alpha_cmd
