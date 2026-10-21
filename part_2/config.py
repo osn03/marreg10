@@ -19,26 +19,32 @@ from math import pi
 from typing import Any, Dict, Optional
 
 from models.thruster_dynamics import ThrusterConfig
-
+import numpy as np
 
 @dataclass
 class RefAxisConfig:
-    """Reference-model configuration for one axis (see part_2/reference.py).
-
-    Tune these per simulation and justify the values in the report.
-
-    Note: the automated checks build the default ``ReferenceModel(dt)``, which
-    uses the field defaults below — so keep your final tuned values as the
-    defaults here (overriding them only in ``run_case_part_2.py`` will not
-    reach the checks).
+    """Reference-model configuration for one axis (see part_1/reference.py).
     """
-    # TODO (students): none of the three values below is a tuned value — they
-    # are placeholders. Choose the natural frequency, the damping ratio and
-    # the rate limit yourself, and justify each of them in the report.
-    wn: float = 1.0                     # natural frequency [rad/s] (placeholder)
-    zeta: float = 1.0                   # damping ratio [-] (placeholder)
+    # TODO (students): wn below is a placeholder, NOT a tuned value. Choose
+    # the natural frequency yourself and justify it in the report (see the
+    # project text, Reference Model section).
+    wn: float = 0.05                     # natural frequency [rad/s] (placeholder)
+    zeta: float = 1.0                   # damping ratio [-]
     rate_limit: Optional[float] = None  # max |x_dot| (m/s or rad/s); None = off
 
+REF_WN_XY: float = 0.05                  # position natural frequency [rad/s]
+REF_WN_PSI: float = 0.10                 # heading natural frequency [rad/s]
+REF_ZETA: float = 1.0                    # critical damping, both axes [-]
+REF_RATE_XY: float = 0.5                 # max desired speed [m/s]
+REF_RATE_PSI: float = np.deg2rad(3.0)    # max desired yaw rate [rad/s]
+
+def default_ref_xy() -> RefAxisConfig:
+    """Tuned reference-model settings for the position axes (N and E)."""
+    return RefAxisConfig(wn=REF_WN_XY, zeta=REF_ZETA, rate_limit=REF_RATE_XY)
+
+def default_ref_psi() -> RefAxisConfig:
+    """Tuned reference-model settings for the heading axis (psi)."""
+    return RefAxisConfig(wn=REF_WN_PSI, zeta=REF_ZETA, rate_limit=REF_RATE_PSI)
 
 @dataclass
 class Part2SimConfig:

@@ -177,7 +177,7 @@ What the engines do for you, in both parts: integrate the vessel with forward Eu
 
 Two engine facts worth knowing before you tune:
 
-- **Time step.** Part 1 integrates at `dt = 0.05 s` by default. Part 2 runs at a fixed `dt = 0.1 s` (or `0.01 s`) and rejects anything else, so the Part 1 default does not carry over. `mcsimpy` supports no multi-stage integrator for this model, and the wrapper rejects any `method` other than `"Euler"`.
+- **Time step.** Part 1 integrates at ` = 0.05 s` by default. Part 2 runs at a fixed `dt = 0.1 s` (or `0.01 s`) and rejects anything else, so the Part 1 default does not carry over. `mcsimpy` supports no multi-stage integrator for this model, and the wrapper rejects any `method` other than `"Euler"`.
 - **Reset.** `reset_state()` puts the vessel at the requested pose and resets your controller, reference model and observer. It resets the observer **at the true pose**, so an estimate that starts on top of the truth has nothing to converge from. The Part 2 runner therefore keeps a separate offset run for the convergence demonstration.
 
 ---
