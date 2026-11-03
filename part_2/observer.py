@@ -315,10 +315,10 @@ class NonlinearPassiveObserver(Observer):
     def __init__(
         self,
         k=1.5,
-        zeta_d=1.0,
-        k4_xy=4000.0,
-        k4_psi=3e5,
-        beta=0.02,
+        zeta_d=1,
+        k4_xy=10000.0,
+        k4_psi=3e6,
+        beta = 0.02
     ):
         """
         Tuning parameters:
@@ -544,9 +544,9 @@ class KalmanFilterObserver(Observer):
         # These are initial tuning values:
 
         sigma_wave = np.array([
-            0.20,
-            0.20,
-            np.deg2rad(0.5)
+            1.5,
+            1.5,
+            np.deg2rad(3.5)
         ])
 
         sigma_nu = np.array([
