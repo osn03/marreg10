@@ -310,13 +310,65 @@ def sim5(step_deg: float = 10.0):
     plot_capability(result, total_limits=(CAP_TOTAL_POS_LIMIT, CAP_TOTAL_PSI_LIMIT_DEG))
     return result
 
+def print_rmse(logs, label):
+    # Same evaluation interval for both sea states.
+    mask = (logs.t >= 100.0) & (logs.t < 580.0)
+
+    error = logs.eta[:, [0, 1, 5]] - logs.cmd[:, [0, 1, 5]]
+    error[:, 2] = (error[:, 2] + np.pi) % (2 * np.pi) - np.pi
+
+    position_rmse = np.sqrt(
+        np.mean(np.sum(error[mask, :2] ** 2, axis=1))
+    )
+    heading_rmse = np.rad2deg(
+        np.sqrt(np.mean(error[mask, 2] ** 2))
+    )
+
+    print(f"\n{label}, evaluation interval: 100–580 s")
+    print(f"Position RMSE: {position_rmse:.3f} m")
+    print(f"Heading RMSE: {heading_rmse:.3f} deg")
+    
+    from simulation.plotter_part_2 import _moving_average
+
+    dt = float(logs.t[1] - logs.t[0])
+    pose = logs.eta[:, [0, 1, 5]].copy()
+    pose[:, 2] = np.unwrap(pose[:, 2])
+
+    pose_lf = np.column_stack([
+        _moving_average(pose[:, j], dt, 30.0)
+        for j in range(3)
+    ])
+
+    error_lf = logs.eta_est[:, [0, 1, 5]] - pose_lf
+    error_lf[:, 2] = (
+        error_lf[:, 2] + np.pi
+    ) % (2 * np.pi) - np.pi
+
+    position_est_rmse = np.sqrt(
+        np.mean(np.sum(error_lf[mask, :2] ** 2, axis=1))
+    )
+    heading_est_rmse = np.rad2deg(
+        np.sqrt(np.mean(error_lf[mask, 2] ** 2))
+    )
+
+    print(f"LF position estimation RMSE: {position_est_rmse:.3f} m")
+    print(f"LF heading estimation RMSE: {heading_est_rmse:.3f} deg")
 
 def sim6():
     """Part 2, Simulation 6 — observer robustness: heavy sea, station keeping 1000 s,
     SELECTED_OBSERVER in the loop."""
     cfg = Part2SimConfig(dt=DT, T=1000.0, use_observer=True, observer_type=selected_observer())
     logs = run(cfg, np.zeros(6), environment(hs=ROBUST_HS, tp=ROBUST_TP))
-    standard_plots(logs, observer=True)
+    standard_plots(logs, observer=True, setpoints=True)
+    print_rmse(logs, "Heavy sea")
+
+    cfg_design = Part2SimConfig(
+        dt=DT, T=600.0,
+        use_observer=True,
+        observer_type=selected_observer()
+    )
+    logs_design = run(cfg_design, np.zeros(6), environment())
+    print_rmse(logs_design, "Design sea")
     return logs
 
 
