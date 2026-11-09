@@ -71,7 +71,7 @@ SEED = 123
 # there first, then set this to "nonlinear_passive" or "kalman" and justify
 # the choice in the report.  It is None until you choose: every preset that
 # needs it stops with a message instead of picking one for you.
-SELECTED_OBSERVER = None
+SELECTED_OBSERVER = "kalman" 
 
 # Initial observer error used by the convergence demonstration in Part 2,
 # Simulation 4.  The engine resets every observer at the TRUE initial pose, so
@@ -321,11 +321,18 @@ def sim6():
 
 
 def sim7():
-    """Part 2, Simulation 7 — your own showcase.  Design it, explain it, discuss it."""
-    # TODO (students): replace this with your own scenario.
-    cfg = Part2SimConfig(dt=DT, T=600.0, use_observer=True, observer_type=selected_observer())
-    logs = run(cfg, np.zeros(6), environment())
-    standard_plots(logs, observer=True)
+    cfg = Part2SimConfig(
+        dt=DT, T=900.0,
+        use_observer=True,
+        observer_type=selected_observer(),
+    )
+
+    t = np.arange(int(round(cfg.T / cfg.dt)) + 1) * cfg.dt
+    command = np.zeros((len(t), 6))
+    command[t >= 300.0, 5] = np.deg2rad(90.0)
+
+    logs = run(cfg, command, environment())
+    standard_plots(logs, setpoints=True, observer=True)
     return logs
 
 
