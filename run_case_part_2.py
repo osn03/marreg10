@@ -373,11 +373,13 @@ def sim6():
 
 
 def sim7():
+    """Part 2, Simulation 7 — station keeping with a 0 to 90 deg heading step at 300 s, SELECTED_OBSERVER in the loop."""
     cfg = Part2SimConfig(
         dt=DT, T=900.0,
         use_observer=True,
         observer_type=selected_observer(),
     )
+    
 
     t = np.arange(int(round(cfg.T / cfg.dt)) + 1) * cfg.dt
     command = np.zeros((len(t), 6))
