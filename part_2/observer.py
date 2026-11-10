@@ -585,9 +585,9 @@ class KalmanFilterObserver(Observer):
         # Heading:    0.20 degrees
 
         self.Rm = np.diag([
-            2.0**2,
-            2.0**2,
-            np.deg2rad(10)**2
+            0.20**2,
+            0.20**2,
+            np.deg2rad(0.2)**2
         ])
 
         #Initial estimation uncertainty
